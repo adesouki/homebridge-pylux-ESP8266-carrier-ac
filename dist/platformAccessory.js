@@ -42,11 +42,11 @@ class PyluxCarrierAC {
         this.port = airConditioner.port;
         this.switchSerialNumber = airConditioner.serial;
         this.token = airConditioner.rpi_token;
-        this.url = 'http://' + this.ip + ':' + this.port + '/ac';
+        this.url = "http://" + this.ip + ":" + this.port + "/ac";
         this.accessory
             .getService(this.platform.Service.AccessoryInformation)
-            .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Pylux Solutions, LLC.')
-            .setCharacteristic(this.platform.Characteristic.Model, 'Pylux Smart Carrier AC Remote')
+            .setCharacteristic(this.platform.Characteristic.Manufacturer, "Pylux Solutions, LLC.")
+            .setCharacteristic(this.platform.Characteristic.Model, "Pylux Smart Carrier AC Remote")
             .setCharacteristic(this.platform.Characteristic.SerialNumber, this.switchSerialNumber);
         this.service =
             this.accessory.getService(this.platform.Service.HeaterCooler) ||
@@ -107,15 +107,15 @@ class PyluxCarrierAC {
             .onGet(this.handleRotationSpeedGet.bind(this))
             .onSet(this.handleRotationSpeedSet.bind(this));
         this.TurboSwitch =
-            this.accessory.getService('Turbo') ||
-                this.accessory.addService(this.platform.Service.Switch, 'Turbo', 'TurboSwitch');
+            this.accessory.getService("Turbo") ||
+                this.accessory.addService(this.platform.Service.Switch, "Turbo", "TurboSwitch");
         this.TurboSwitch.getCharacteristic(this.platform.Characteristic.On)
             .onGet(this.handleTurboGet.bind(this))
             .onSet(this.handleTurboSet.bind(this));
         this.service
             .getCharacteristic(this.platform.Characteristic.LockPhysicalControls)
             .setProps({
-            description: 'LED',
+            description: "LED",
             minValue: 0,
             maxValue: 1,
             minStep: 1,
@@ -142,7 +142,7 @@ class PyluxCarrierAC {
         }, {
             longpolling: true,
             interval: this.polling_interval,
-            longpollEventName: 'humidityPoll',
+            longpollEventName: "humidityPoll",
         });
     }
     temperaturePolling() {
@@ -151,7 +151,7 @@ class PyluxCarrierAC {
         }, {
             longpolling: true,
             interval: this.polling_interval,
-            longpollEventName: 'temperaturePoll',
+            longpollEventName: "temperaturePoll",
         });
     }
     temperatureCtoF(temperature) {
@@ -171,11 +171,11 @@ class PyluxCarrierAC {
         return new Promise((resolve, reject) => {
             try {
                 (0, node_fetch_1.default)(this.url, {
-                    method: 'POST',
+                    method: "POST",
                     body: jsonBody,
                     headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json, text/plain, */*',
+                        "Content-Type": "application/json",
+                        Accept: "application/json, text/plain, */*",
                     },
                 })
                     .then((res) => res.json())
@@ -183,33 +183,34 @@ class PyluxCarrierAC {
                     resolve(JSON.stringify(res));
                 })
                     .catch((error) => {
-                    reject('User clicked cancel');
-                    this.platform.log.info('ERROR:', error);
+                    reject("User clicked cancel");
+                    this.platform.log.info("ERROR:", error);
                     throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
                 });
             }
             catch (error) {
-                reject('User clicked cancel');
-                this.platform.log.info('ERROR:', error);
+                reject("User clicked cancel");
+                this.platform.log.info("ERROR:", error);
                 throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
             }
         });
     }
     async handleActiveGet() {
-        const jsonBody = JSON.stringify({ req: 'getActive', token: this.token });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        if (response.active) {
-            this.active.state = this.platform.Characteristic.Active.ACTIVE;
-            return this.platform.Characteristic.Active.ACTIVE;
-        }
-        else {
-            this.active.state = this.platform.Characteristic.Active.INACTIVE;
-            return this.platform.Characteristic.Active.INACTIVE;
-        }
+        return this.active.state;
+        // const jsonBody = JSON.stringify({ req: 'getActive', token: this.token });
+        // const response = JSON.parse(await this.sendJSON(jsonBody));
+        //
+        // if (response.active) {
+        //   this.active.state = this.platform.Characteristic.Active.ACTIVE;
+        //   return this.platform.Characteristic.Active.ACTIVE;
+        // } else {
+        //   this.active.state = this.platform.Characteristic.Active.INACTIVE;
+        //   return this.platform.Characteristic.Active.INACTIVE;
+        // }
     }
     async handleActiveSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setActive',
+            req: "setActive",
             token: this.token,
             active: value,
             state: this.targetHeaterCooler.state,
@@ -226,28 +227,36 @@ class PyluxCarrierAC {
         this.service.updateCharacteristic(this.platform.Characteristic.Active, this.active.state);
     }
     async handleCurrentHeaterCoolerStateGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getCurrentHeaterCoolerState',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.currentHeaterCooler.state = response.state;
-        this.service.updateCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState, this.currentHeaterCooler.state);
+        // const jsonBody = JSON.stringify({
+        //   req: 'getCurrentHeaterCoolerState',
+        //   token: this.token,
+        // });
+        // const response = JSON.parse(await this.sendJSON(jsonBody));
+        // this.currentHeaterCooler.state = response.state;
+        //
+        // this.service.updateCharacteristic(
+        //   this.platform.Characteristic.CurrentHeaterCoolerState,
+        //   this.currentHeaterCooler.state
+        // );
         return this.currentHeaterCooler.state;
     }
     async handleTargetHeaterCoolerStateGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getTargetHeaterCoolerState',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.targetHeaterCooler.state = response.state;
-        this.service.updateCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState, this.targetHeaterCooler.state);
+        // const jsonBody = JSON.stringify({
+        //       req: 'getTargetHeaterCoolerState',
+        //       token: this.token,
+        //     });
+        //     const response = JSON.parse(await this.sendJSON(jsonBody));
+        //     this.targetHeaterCooler.state = response.state;
+        //
+        //     this.service.updateCharacteristic(
+        //       this.platform.Characteristic.TargetHeaterCoolerState,
+        //       this.targetHeaterCooler.state
+        //     );
         return this.targetHeaterCooler.state;
     }
     async handleTargetHeaterCoolerStateSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setTargetHeaterCoolerState',
+            req: "setTargetHeaterCoolerState",
             token: this.token,
             state: value,
         });
@@ -257,7 +266,7 @@ class PyluxCarrierAC {
     }
     async temperaturePoll(update) {
         const jsonBody = JSON.stringify({
-            req: 'getCurrentTemp',
+            req: "getCurrentTemp",
             token: this.token,
         });
         const response = JSON.parse(await this.sendJSON(jsonBody));
@@ -269,22 +278,26 @@ class PyluxCarrierAC {
                 .updateValue(this.currentHeaterCooler.temp);
     }
     handleCurrentTemperatureGet() {
-        this.temperaturePoll(false);
+        // this.temperaturePoll(false);
         return this.currentHeaterCooler.temp;
     }
     async handleRotationSpeedGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getRotationSpeed',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.rotation.speed = response.fanSpeed;
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.rotation.speed);
+        // const jsonBody = JSON.stringify({
+        //   req: 'getRotationSpeed',
+        //   token: this.token,
+        // });
+        // const response = JSON.parse(await this.sendJSON(jsonBody));
+        // this.rotation.speed = response.fanSpeed;
+        //
+        // this.service.updateCharacteristic(
+        //   this.platform.Characteristic.RotationSpeed,
+        //   this.rotation.speed
+        // );
         return this.rotation.speed;
     }
     async handleRotationSpeedSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setRotationSpeed',
+            req: "setRotationSpeed",
             token: this.token,
             fanSpeed: value,
         });
@@ -293,18 +306,23 @@ class PyluxCarrierAC {
         this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.rotation.speed);
     }
     async handleSwingModeGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getSwingMode',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.swing.mode = response.swingMode;
-        this.service.updateCharacteristic(this.platform.Characteristic.SwingMode, this.swing.mode);
+        // const jsonBody = JSON.stringify({
+        //   req: 'getSwingMode',
+        //   token: this.token,
+        // });
+        //
+        // const response = JSON.parse(await this.sendJSON(jsonBody));
+        // this.swing.mode = response.swingMode;
+        //
+        // this.service.updateCharacteristic(
+        //   this.platform.Characteristic.SwingMode,
+        //   this.swing.mode
+        // );
         return this.swing.mode;
     }
     async handleSwingModeSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setSwingMode',
+            req: "setSwingMode",
             token: this.token,
             swingMode: value,
         });
@@ -313,18 +331,23 @@ class PyluxCarrierAC {
         this.service.updateCharacteristic(this.platform.Characteristic.SwingMode, this.swing.mode);
     }
     async handleTurboGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getTurbo',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.turbo.state = response.turboMode;
-        this.service.updateCharacteristic(this.platform.Characteristic.On, this.turbo.state);
+        // const jsonBody = JSON.stringify({
+        //       req: 'getTurbo',
+        //       token: this.token,
+        //     });
+        //
+        //     const response = JSON.parse(await this.sendJSON(jsonBody));
+        //     this.turbo.state = response.turboMode;
+        //
+        //     this.service.updateCharacteristic(
+        //       this.platform.Characteristic.On,
+        //       this.turbo.state
+        //     );
         return this.turbo.state;
     }
     async handleTurboSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setTurbo',
+            req: "setTurbo",
             token: this.token,
             turboMode: value,
         });
@@ -337,7 +360,7 @@ class PyluxCarrierAC {
     }
     async handleLockPhysicalControlsSet(value) {
         const jsonBody = JSON.stringify({
-            req: 'setLockPhysicalControls',
+            req: "setLockPhysicalControls",
             token: this.token,
             led: value == 1 ? true : false,
         });
@@ -349,16 +372,21 @@ class PyluxCarrierAC {
         return this.platform.Characteristic.TemperatureDisplayUnits.CELSIUS;
     }
     handleTemperatureDisplayUnitsSet(value) {
-        this.platform.log.debug('handleTemperatureDisplayUnitsSet ', value);
+        this.platform.log.debug("handleTemperatureDisplayUnitsSet ", value);
     }
     async handleCoolingThresholdTemperatureGet() {
-        const jsonBody = JSON.stringify({
-            req: 'getACTemp',
-            token: this.token,
-        });
-        const response = JSON.parse(await this.sendJSON(jsonBody));
-        this.coolingThresholdTemperature = response.acTemp;
-        this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, this.coolingThresholdTemperature);
+        // const jsonBody = JSON.stringify({
+        //   req: 'getACTemp',
+        //   token: this.token,
+        // });
+        //
+        // const response = JSON.parse(await this.sendJSON(jsonBody));
+        // this.coolingThresholdTemperature = response.acTemp;
+        //
+        // this.service.updateCharacteristic(
+        //   this.platform.Characteristic.CoolingThresholdTemperature,
+        //   this.coolingThresholdTemperature
+        // );
         return this.coolingThresholdTemperature;
     }
     handleHeatingThresholdTemperatureGet() {
@@ -367,7 +395,7 @@ class PyluxCarrierAC {
     async handleCoolingThresholdTemperatureSet(value) {
         this.coolingThresholdTemperature = value;
         const jsonBody = JSON.stringify({
-            req: 'setACTemp',
+            req: "setACTemp",
             token: this.token,
             temp: value,
         });
@@ -375,7 +403,7 @@ class PyluxCarrierAC {
         this.service.updateCharacteristic(this.platform.Characteristic.CoolingThresholdTemperature, this.coolingThresholdTemperature);
     }
     handleHeatingThresholdTemperatureSet(value) {
-        this.platform.log.debug('handleHeatingThresholdTemperatureSet ', value);
+        this.platform.log.debug("handleHeatingThresholdTemperatureSet ", value);
     }
     handleFilterChangeIndicationGet() {
         return this.platform.Characteristic.FilterChangeIndication.FILTER_OK;
@@ -387,11 +415,11 @@ class PyluxCarrierAC {
         return 0;
     }
     handleResetFilterIndicationSet(value) {
-        this.platform.log.debug('handleResetFilterIndicationSet ', value);
+        this.platform.log.debug("handleResetFilterIndicationSet ", value);
     }
     async humidityPoll(update) {
         const jsonBody = JSON.stringify({
-            req: 'getRelativeHumidity',
+            req: "getRelativeHumidity",
             token: this.token,
         });
         const response = JSON.parse(await this.sendJSON(jsonBody));
@@ -403,7 +431,7 @@ class PyluxCarrierAC {
                 .updateValue(this.currentHeaterCooler.relativeHumidity);
     }
     handleCurrentRelativeHumidityGet() {
-        this.humidityPoll(false);
+        // this.humidityPoll(false);
         return this.currentHeaterCooler.relativeHumidity;
     }
 }

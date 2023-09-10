@@ -1,5 +1,5 @@
-import { PlatformAccessory, PlatformConfig } from 'homebridge';
-import { PyluxCarrierACPlatform } from './platform';
+import { PlatformAccessory, PlatformConfig } from "homebridge";
+import { PyluxCarrierACPlatform } from "./platform";
 export declare class PyluxCarrierAC {
     private readonly platform;
     private readonly accessory;
@@ -27,7 +27,7 @@ export declare class PyluxCarrierAC {
     temperatureCtoF(temperature: any): number;
     temperatureFtoC(temperature: any): number;
     sendJSON(jsonBody: string): Promise<string>;
-    handleActiveGet(): Promise<0 | 1>;
+    handleActiveGet(): Promise<number>;
     handleActiveSet(value: any): Promise<void>;
     handleCurrentHeaterCoolerStateGet(): Promise<number>;
     handleTargetHeaterCoolerStateGet(): Promise<number>;
