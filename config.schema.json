@@ -1,0 +1,56 @@
+{
+	"pluginAlias": "PyluxCarrierACPlatform",
+	"pluginType": "platform",
+	"singular": true,
+	"headerDisplay": "Pylux Smart Home Solutions",
+	"footerDisplay": "Thank you for using our software.",
+	"schema": {
+		"type": "object",
+		"properties": {
+			"AirConditioners": {
+				"type": "array",
+				"title": "Air Conditioners",
+				"items": {
+					"type": "object",
+					"title": "Air Conditioner",
+					"name": {
+						"title": "AC Name",
+						"type": "string",
+						"required": true,
+						"default": ""
+					},
+					"ip": {
+						"title": "ESP8266 Service IP",
+						"type": "string",
+						"required": true,
+						"default": ""
+					},
+					"port": {
+						"title": "ESP8266 Service Port",
+						"type": "integer",
+						"required": true,
+						"default": 9999
+					},
+					"polling_interval": {
+						"title": "Temp & Humidity Polling Interval in MS",
+						"type": "integer",
+						"required": true,
+						"default": 7000
+					},
+					"serial": {
+						"title": "AC Serial Number",
+						"type": "string",
+						"required": true,
+						"default": ""
+					},
+					"rpi_token": {
+						"title": "ESP8266 Server Token",
+						"type": "string",
+						"required": true,
+						"default": ""
+					}
+				}
+			}
+		}
+	}
+}
