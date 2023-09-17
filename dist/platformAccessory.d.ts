@@ -1,5 +1,5 @@
-import { PlatformAccessory, PlatformConfig } from "homebridge";
-import { PyluxCarrierACPlatform } from "./platform";
+import { PlatformAccessory, PlatformConfig } from 'homebridge';
+import { PyluxCarrierACPlatform } from './platform';
 export declare class PyluxCarrierAC {
     private readonly platform;
     private readonly accessory;
@@ -10,10 +10,9 @@ export declare class PyluxCarrierAC {
     private switchSerialNumber;
     private url;
     private TurboSwitch;
-    private coolingThresholdTemperature;
-    private heatingThresholdTemperature;
-    private targetTemp;
     private polling_interval;
+    private dataFilePath;
+    private historyFileJSON;
     private targetHeaterCooler;
     private currentHeaterCooler;
     private active;
@@ -22,30 +21,32 @@ export declare class PyluxCarrierAC {
     private turbo;
     private lockPhysicalControls;
     constructor(platform: PyluxCarrierACPlatform, accessory: PlatformAccessory, airConditioner: PlatformConfig);
+    writeConfigHistory(jsonBody: any): void;
+    readConfigHistory(): void;
     humidityPolling(): void;
     temperaturePolling(): void;
     temperatureCtoF(temperature: any): number;
     temperatureFtoC(temperature: any): number;
     sendJSON(jsonBody: string): Promise<string>;
-    handleActiveGet(): Promise<number>;
+    handleActiveGet(): Promise<any>;
     handleActiveSet(value: any): Promise<void>;
-    handleCurrentHeaterCoolerStateGet(): Promise<number>;
-    handleTargetHeaterCoolerStateGet(): Promise<number>;
+    handleCurrentHeaterCoolerStateGet(): Promise<any>;
+    handleTargetHeaterCoolerStateGet(): Promise<any>;
     handleTargetHeaterCoolerStateSet(value: any): Promise<void>;
     temperaturePoll(update: boolean): Promise<void>;
-    handleCurrentTemperatureGet(): number;
-    handleRotationSpeedGet(): Promise<number>;
+    handleCurrentTemperatureGet(): any;
+    handleRotationSpeedGet(): Promise<any>;
     handleRotationSpeedSet(value: any): Promise<void>;
-    handleSwingModeGet(): Promise<number>;
+    handleSwingModeGet(): Promise<any>;
     handleSwingModeSet(value: any): Promise<void>;
-    handleTurboGet(): Promise<boolean>;
+    handleTurboGet(): Promise<any>;
     handleTurboSet(value: any): Promise<void>;
-    handleLockPhysicalControlsGet(): Promise<number>;
+    handleLockPhysicalControlsGet(): Promise<any>;
     handleLockPhysicalControlsSet(value: any): Promise<void>;
-    handleTemperatureDisplayUnitsGet(): number;
+    handleTemperatureDisplayUnitsGet(): any;
     handleTemperatureDisplayUnitsSet(value: any): void;
-    handleCoolingThresholdTemperatureGet(): Promise<number>;
-    handleHeatingThresholdTemperatureGet(): number;
+    handleCoolingThresholdTemperatureGet(): Promise<any>;
+    handleHeatingThresholdTemperatureGet(): any;
     handleCoolingThresholdTemperatureSet(value: any): Promise<void>;
     handleHeatingThresholdTemperatureSet(value: any): void;
     handleFilterChangeIndicationGet(): number;
@@ -53,6 +54,6 @@ export declare class PyluxCarrierAC {
     handleResetFilterIndicationGet(): number;
     handleResetFilterIndicationSet(value: any): void;
     humidityPoll(update: boolean): Promise<void>;
-    handleCurrentRelativeHumidityGet(): number;
+    handleCurrentRelativeHumidityGet(): any;
 }
 //# sourceMappingURL=platformAccessory.d.ts.map
