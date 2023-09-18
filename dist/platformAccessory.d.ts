@@ -13,15 +13,10 @@ export declare class PyluxCarrierAC {
     private polling_interval;
     private dataFilePath;
     private historyFileJSON;
-    private targetHeaterCooler;
-    private currentHeaterCooler;
-    private active;
-    private rotation;
-    private swing;
-    private turbo;
-    private lockPhysicalControls;
+    private usesFahrenheit;
     constructor(platform: PyluxCarrierACPlatform, accessory: PlatformAccessory, airConditioner: PlatformConfig);
-    writeConfigHistory(jsonBody: any): void;
+    getUserHome(): string | undefined;
+    writeConfigHistory(jsonBody: string): void;
     readConfigHistory(): void;
     humidityPolling(): void;
     temperaturePolling(): void;

@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 
 import pollingtoevent = require('polling-to-event');
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 export class PyluxCarrierAC {
@@ -16,43 +16,10 @@ export class PyluxCarrierAC {
   private switchSerialNumber: string;
   private url: string;
   private TurboSwitch: Service;
-  // private coolingThresholdTemperature: number;
-  // private heatingThresholdTemperature: number;
   private polling_interval: number;
-  // private units: number;
   private dataFilePath: string;
   private historyFileJSON: any;
-
-  private targetHeaterCooler = {
-    state: this.platform.Characteristic.TargetHeaterCoolerState.AUTO,
-    temp: 0,
-  };
-
-  private currentHeaterCooler = {
-    state: this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE,
-    temp: 0.0,
-    relativeHumidity: 0,
-  };
-
-  private active = {
-    state: 0,
-  };
-
-  private rotation = {
-    speed: 4,
-  };
-
-  private swing = {
-    mode: 0,
-  };
-
-  private turbo = {
-    state: false,
-  };
-
-  private lockPhysicalControls = {
-    state: 1,
-  };
+  private usesFahrenheit: boolean;
 
   constructor(
     private readonly platform: PyluxCarrierACPlatform,
@@ -64,15 +31,14 @@ export class PyluxCarrierAC {
     this.port = airConditioner.port as number;
     this.switchSerialNumber = airConditioner.serial as string;
     this.token = airConditioner.rpi_token as string;
-    this.dataFilePath = './data' + this.token + '.json';
+    let dir = this.getUserHome() + '/.actemp';
+    if (!existsSync(dir)) {
+      mkdirSync(dir, 0o744);
+    }
+    this.dataFilePath = dir + '/data' + this.token + '.json';
     this.url = 'http://' + this.ip + ':' + this.port + '/ac';
-
     this.readConfigHistory();
-
-    // this.historyFileJSON.coolingThresholdTemperature = this.historyFileJSON.coolingThresholdTemperature;
-    // this.historyFileJSON.heatingThresholdTemperature; = this.historyFileJSON.heatingThresholdTemperature;
-    // this.historyFileJSON.units = this.historyFileJSON.units;
-
+    this.usesFahrenheit = this.historyFileJSON.units == 0 ? false : true;
     this.accessory
       .getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(
@@ -109,8 +75,8 @@ export class PyluxCarrierAC {
     this.service
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .setProps({
-        minValue: 0.0,
-        maxValue: 50.0,
+        minValue: -100.0,
+        maxValue: 100.0,
         minStep: 0.1,
       })
       .onGet(this.handleCurrentTemperatureGet.bind(this));
@@ -120,9 +86,9 @@ export class PyluxCarrierAC {
         this.platform.Characteristic.CoolingThresholdTemperature
       )
       .setProps({
-        minValue: 17,
-        maxValue: 25,
-        minStep: 1,
+        minValue: this.usesFahrenheit ? 62.6 : 17,
+        maxValue: this.usesFahrenheit ? 77 : 26,
+        minStep: this.usesFahrenheit ? 0.1 : 1,
       })
       .onGet(this.handleCoolingThresholdTemperatureGet.bind(this))
       .onSet(this.handleCoolingThresholdTemperatureSet.bind(this));
@@ -132,13 +98,14 @@ export class PyluxCarrierAC {
         this.platform.Characteristic.HeatingThresholdTemperature
       )
       .setProps({
-        minValue: 17,
-        maxValue: 28,
-        minStep: 1,
+        minValue: this.usesFahrenheit ? 62.6 : 17,
+        // minValue: this.usesFahrenheit ? 68 : 20,
+        maxValue: this.usesFahrenheit ? 82.4 : 28,
+        minStep: this.usesFahrenheit ? 0.1 : 1,
       })
       .onGet(this.handleHeatingThresholdTemperatureGet.bind(this))
       .onSet(this.handleHeatingThresholdTemperatureSet.bind(this));
-    // minStep: this.usesFahrenheit ? 0.1 : 1
+
     this.service
       .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
       .onGet(this.handleTemperatureDisplayUnitsGet.bind(this))
@@ -166,7 +133,7 @@ export class PyluxCarrierAC {
     this.TurboSwitch.getCharacteristic(this.platform.Characteristic.On)
       .onGet(this.handleTurboGet.bind(this))
       .onSet(this.handleTurboSet.bind(this));
-
+    this.service.addLinkedService(this.TurboSwitch);
     this.service
       .getCharacteristic(this.platform.Characteristic.SwingMode)
       .onGet(this.handleSwingModeGet.bind(this))
@@ -175,7 +142,6 @@ export class PyluxCarrierAC {
     this.service
       .getCharacteristic(this.platform.Characteristic.LockPhysicalControls)
       .setProps({
-        description: 'LED',
         minValue: 0,
         maxValue: 1,
         minStep: 1,
@@ -196,12 +162,18 @@ export class PyluxCarrierAC {
     this.service
       .getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
       .onGet(this.handleCurrentRelativeHumidityGet.bind(this));
+
+    this.service.setPrimaryService(true);
     this.humidityPolling();
     this.temperaturePolling();
   }
 
-  writeConfigHistory(jsonBody: any) {
-    writeFileSync(join(__dirname, this.dataFilePath), jsonBody, {
+  getUserHome() {
+    return process.env.HOME || process.env.USERPROFILE;
+  }
+
+  writeConfigHistory(jsonBody: string) {
+    writeFileSync(this.dataFilePath, jsonBody, {
       flag: 'w',
     });
   }
@@ -228,9 +200,7 @@ export class PyluxCarrierAC {
       this.writeConfigHistory(jsonBody);
     }
 
-    this.historyFileJSON = JSON.parse(
-      readFileSync(join(__dirname, this.dataFilePath), 'utf-8')
-    );
+    this.historyFileJSON = JSON.parse(readFileSync(this.dataFilePath, 'utf-8'));
   }
 
   humidityPolling() {
@@ -291,81 +261,132 @@ export class PyluxCarrierAC {
             resolve(JSON.stringify(res));
           })
           .catch((error) => {
-            reject('User clicked cancel');
+            return 'ERROR';
             this.platform.log.info('ERROR:', error);
           });
       } catch (error) {
-        reject('User clicked cancel');
+        return 'ERROR';
         this.platform.log.info('ERROR:', error);
       }
     });
   }
 
   async handleActiveGet() {
+    this.platform.log.debug(
+      'handleActiveGet ',
+      this.historyFileJSON.active_state
+    );
     return this.historyFileJSON.active_state;
   }
 
   async handleActiveSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setActive',
-      token: this.token,
-      active: value,
-      state: this.historyFileJSON.targetHeaterCooler_state,
-      temp: this.historyFileJSON.coolingThresholdTemperature, //convert and check mode first,
-      fanSpeed: this.historyFileJSON.rotation_speed,
-    });
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    if (response.active) {
-      this.historyFileJSON.active_state =
-        this.platform.Characteristic.Active.ACTIVE;
-    } else {
-      this.historyFileJSON.active_state =
-        this.platform.Characteristic.Active.INACTIVE;
+    this.platform.log.debug('handleActiveSet ', value);
+    //handle heating and auto state in temp.
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      let tempValue = 0.0;
+      if (this.historyFileJSON.units == 0)
+        tempValue = this.historyFileJSON.coolingThresholdTemperature; //convert
+      else
+        tempValue = this.temperatureFtoC(
+          this.historyFileJSON.coolingThresholdTemperature
+        ); //convert
+      const jsonBody = JSON.stringify({
+        req: 'setActive',
+        token: this.token,
+        active: value,
+        state: this.historyFileJSON.targetHeaterCooler_state,
+        temp: tempValue, //convert and check mode first,
+        fanSpeed: this.historyFileJSON.rotation_speed,
+      });
+      const res = await this.sendJSON(jsonBody);
+
+      if (res != 'ERROR') {
+        const response = JSON.parse(res);
+        if (response.active) {
+          this.historyFileJSON.active_state =
+            this.platform.Characteristic.Active.ACTIVE;
+        } else {
+          this.historyFileJSON.active_state =
+            this.platform.Characteristic.Active.INACTIVE;
+        }
+      }
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        this.historyFileJSON.active_state
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
     }
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.Active,
-      this.historyFileJSON.active_state
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    this.service
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .updateValue(this.historyFileJSON.active_state);
   }
 
-  // set proper target and current state of HeaterCoolerService
-  // if (this.state.mode === 'COOL') {
-  // 	this.updateValue('HeaterCoolerService', 'TargetHeaterCoolerState', Characteristic.TargetHeaterCoolerState.COOL)
-  // 	this.updateValue('HeaterCoolerService', 'CurrentHeaterCoolerState', Characteristic.CurrentHeaterCoolerState.COOLING)
-  // } else if (this.state.mode === 'HEAT') {
-  // 	this.updateValue('HeaterCoolerService', 'TargetHeaterCoolerState', Characteristic.TargetHeaterCoolerState.HEAT)
-  // 	this.updateValue('HeaterCoolerService', 'CurrentHeaterCoolerState', Characteristic.CurrentHeaterCoolerState.HEATING)
-  // } else if (this.state.mode === 'AUTO') {
-  // 	this.updateValue('HeaterCoolerService', 'TargetHeaterCoolerState', Characteristic.TargetHeaterCoolerState.AUTO)
-  // 	if (this.state.currentTemperature > this.state.targetTemperature)
-  // 		this.updateValue('HeaterCoolerService', 'CurrentHeaterCoolerState', Characteristic.CurrentHeaterCoolerState.COOLING)
-  // 	else
-  // 		this.updateValue('HeaterCoolerService', 'CurrentHeaterCoolerState', Characteristic.CurrentHeaterCoolerState.HEATING)
-  // }
-
   async handleCurrentHeaterCoolerStateGet() {
-    //TODO Think about it. there are no set for it
+    this.platform.log.debug(
+      'handleCurrentHeaterCoolerStateGet ',
+      this.historyFileJSON.currentHeaterCooler_state
+    );
     return this.historyFileJSON.currentHeaterCooler_state;
   }
 
   async handleTargetHeaterCoolerStateGet() {
+    this.platform.log.debug(
+      'handleTargetHeaterCoolerStateGet ',
+      this.historyFileJSON.targetHeaterCooler_state
+    );
     return this.historyFileJSON.targetHeaterCooler_state;
   }
 
   async handleTargetHeaterCoolerStateSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setTargetHeaterCoolerState',
-      token: this.token,
-      state: value,
-    });
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.targetHeaterCooler_state = response.state;
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.TargetHeaterCoolerState,
-      this.historyFileJSON.targetHeaterCooler_state
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    this.platform.log.debug('handleTargetHeaterCoolerStateSet ', value);
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      const jsonBody = JSON.stringify({
+        req: 'setTargetHeaterCoolerState',
+        token: this.token,
+        state: value,
+      });
+      const res = await this.sendJSON(jsonBody);
+
+      if (res != 'ERROR') {
+        const response = JSON.parse(res);
+        this.historyFileJSON.targetHeaterCooler_state = response.state;
+        if (
+          this.historyFileJSON.targetHeaterCooler_state ==
+          this.platform.Characteristic.TargetHeaterCoolerState.COOL
+        ) {
+          this.historyFileJSON.currentHeaterCooler_state =
+            this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+        } else if (
+          this.historyFileJSON.targetHeaterCooler_state ==
+          this.platform.Characteristic.TargetHeaterCoolerState.HEAT
+        ) {
+          this.historyFileJSON.currentHeaterCooler_state =
+            this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+        } else if (
+          this.historyFileJSON.targetHeaterCooler_state ==
+          this.platform.Characteristic.TargetHeaterCoolerState.AUTO
+        ) {
+          if (
+            this.historyFileJSON.currentHeaterCooler_temp >
+            this.historyFileJSON.coolingThresholdTemperature
+          )
+            this.historyFileJSON.currentHeaterCooler_state =
+              this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+          else
+            this.historyFileJSON.currentHeaterCooler_state =
+              this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+        }
+      }
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.TargetHeaterCoolerState,
+        this.historyFileJSON.targetHeaterCooler_state
+      );
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentHeaterCoolerState,
+        this.historyFileJSON.currentHeaterCooler_state
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    }
   }
 
   async temperaturePoll(update: boolean) {
@@ -374,9 +395,19 @@ export class PyluxCarrierAC {
       token: this.token,
     });
 
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.currentHeaterCooler_temp =
-      Math.round(response.temp * 100) / 100; //connvert
+    const res = await this.sendJSON(jsonBody);
+
+    if (res != 'ERROR') {
+      const response = JSON.parse(res);
+
+      if (this.historyFileJSON.units == 0)
+        this.historyFileJSON.currentHeaterCooler_temp =
+          Math.round(response.temp * 100) / 100;
+      else
+        this.historyFileJSON.currentHeaterCooler_temp = this.temperatureCtoF(
+          response.temp
+        );
+    }
 
     this.service.updateCharacteristic(
       this.platform.Characteristic.CurrentTemperature,
@@ -387,12 +418,19 @@ export class PyluxCarrierAC {
       this.service
         .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
         .updateValue(this.historyFileJSON.currentHeaterCooler_temp);
-
+    this.platform.log.debug(
+      'temperaturePoll ',
+      this.historyFileJSON.currentHeaterCooler_temp
+    );
     this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
   }
 
   handleCurrentTemperatureGet() {
-    return this.historyFileJSON.currentHeaterCooler_temp; //convert
+    this.platform.log.debug(
+      'handleCurrentTemperatureGet ',
+      this.historyFileJSON.currentHeaterCooler_temp
+    );
+    return this.historyFileJSON.currentHeaterCooler_temp;
   }
 
   async handleRotationSpeedGet() {
@@ -400,20 +438,25 @@ export class PyluxCarrierAC {
   }
 
   async handleRotationSpeedSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setRotationSpeed',
-      token: this.token,
-      fanSpeed: value,
-    });
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      const jsonBody = JSON.stringify({
+        req: 'setRotationSpeed',
+        token: this.token,
+        fanSpeed: value,
+      });
 
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.rotation_speed = response.fanSpeed;
+      const res = await this.sendJSON(jsonBody);
 
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.RotationSpeed,
-      this.historyFileJSON.rotation_speed
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+      if (res != 'ERROR') {
+        const response = JSON.parse(res);
+        this.historyFileJSON.rotation_speed = response.fanSpeed;
+      }
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        this.historyFileJSON.rotation_speed
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    }
   }
 
   async handleSwingModeGet() {
@@ -421,20 +464,25 @@ export class PyluxCarrierAC {
   }
 
   async handleSwingModeSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setSwingMode',
-      token: this.token,
-      swingMode: value,
-    });
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      const jsonBody = JSON.stringify({
+        req: 'setSwingMode',
+        token: this.token,
+        swingMode: value,
+      });
 
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.swing_mode = response.swingMode;
+      const res = await this.sendJSON(jsonBody);
 
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.SwingMode,
-      this.historyFileJSON.swing_mode
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+      if (res != 'ERROR') {
+        const response = JSON.parse(res);
+        this.historyFileJSON.swing_mode = response.swingMode;
+      }
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.SwingMode,
+        this.historyFileJSON.swing_mode
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    }
   }
 
   async handleTurboGet() {
@@ -442,20 +490,25 @@ export class PyluxCarrierAC {
   }
 
   async handleTurboSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setTurbo',
-      token: this.token,
-      turboMode: value,
-    });
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      const jsonBody = JSON.stringify({
+        req: 'setTurbo',
+        token: this.token,
+        turboMode: value,
+      });
 
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.turbo_state = response.turboMode;
+      const res = await this.sendJSON(jsonBody);
 
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.On,
-      this.historyFileJSON.turbo_state
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+      if (res != 'ERROR') {
+        const response = JSON.parse(res);
+        this.historyFileJSON.turbo_state = response.turboMode;
+      }
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.On,
+        this.historyFileJSON.turbo_state
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    }
   }
 
   async handleLockPhysicalControlsGet() {
@@ -463,15 +516,7 @@ export class PyluxCarrierAC {
   }
 
   async handleLockPhysicalControlsSet(value) {
-    const jsonBody = JSON.stringify({
-      req: 'setLockPhysicalControls',
-      token: this.token,
-      led: value == 1 ? true : false,
-    });
-
-    const response = JSON.parse(await this.sendJSON(jsonBody));
-    this.historyFileJSON.lockPhysicalControls_state = response.led;
-
+    this.historyFileJSON.lockPhysicalControls_state = value;
     this.service.updateCharacteristic(
       this.platform.Characteristic.LockPhysicalControls,
       this.historyFileJSON.lockPhysicalControls_state
@@ -480,42 +525,181 @@ export class PyluxCarrierAC {
   }
 
   handleTemperatureDisplayUnitsGet() {
+    this.platform.log.debug(
+      'handleTemperatureDisplayUnitsGet ',
+      this.historyFileJSON.units
+    );
     return this.historyFileJSON.units;
   }
 
   handleTemperatureDisplayUnitsSet(value) {
+    this.platform.log.debug('handleTemperatureDisplayUnitsSet ', value);
     this.historyFileJSON.units = value;
+    this.usesFahrenheit = this.historyFileJSON.units == 0 ? false : true;
+
+    if (
+      this.historyFileJSON.currentHeaterCooler_temp < 55 &&
+      this.usesFahrenheit
+    ) {
+      this.historyFileJSON.currentHeaterCooler_temp = this.temperatureCtoF(
+        this.historyFileJSON.currentHeaterCooler_temp
+      );
+    } else if (
+      this.historyFileJSON.currentHeaterCooler_temp > 55 &&
+      !this.usesFahrenheit
+    ) {
+      this.historyFileJSON.currentHeaterCooler_temp = this.temperatureFtoC(
+        this.historyFileJSON.currentHeaterCooler_temp
+      );
+    }
+    this.service
+      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .setProps({
+        minStep: this.usesFahrenheit ? 0.1 : 1,
+      })
+      .updateValue(this.historyFileJSON.currentHeaterCooler_temp);
+
+    if (
+      this.historyFileJSON.coolingThresholdTemperature < 55 &&
+      this.usesFahrenheit
+    ) {
+      this.historyFileJSON.coolingThresholdTemperature = this.temperatureCtoF(
+        this.historyFileJSON.coolingThresholdTemperature
+      );
+    } else if (
+      this.historyFileJSON.coolingThresholdTemperature > 55 &&
+      !this.usesFahrenheit
+    ) {
+      this.historyFileJSON.coolingThresholdTemperature = this.temperatureFtoC(
+        this.historyFileJSON.coolingThresholdTemperature
+      );
+    }
+    // this.service.removeCharacteristic(
+    //   this.platform.Characteristic.CoolingThresholdTemperature
+    // );
+
+    this.service
+      .getCharacteristic(
+        this.platform.Characteristic.CoolingThresholdTemperature
+      )
+      .setProps({
+        minValue: 0,
+        maxValue: 100,
+        minStep: this.usesFahrenheit ? 0.1 : 1,
+      })
+      .updateValue(this.historyFileJSON.coolingThresholdTemperature)
+      .setProps({
+        minValue: this.usesFahrenheit ? 62.6 : 17,
+        maxValue: this.usesFahrenheit ? 77 : 26,
+      });
+
+    if (
+      this.historyFileJSON.heatingThresholdTemperature < 55 &&
+      this.usesFahrenheit
+    ) {
+      this.historyFileJSON.heatingThresholdTemperature = this.temperatureCtoF(
+        this.historyFileJSON.heatingThresholdTemperature
+      );
+    } else if (
+      this.historyFileJSON.heatingThresholdTemperature > 55 &&
+      !this.usesFahrenheit
+    ) {
+      this.historyFileJSON.heatingThresholdTemperature = this.temperatureFtoC(
+        this.historyFileJSON.heatingThresholdTemperature
+      );
+    }
+
+    // this.service.removeCharacteristic(
+    //   this.platform.Characteristic.HeatingThresholdTemperature
+    // );
+
+    this.service
+      .getCharacteristic(
+        this.platform.Characteristic.HeatingThresholdTemperature
+      )
+      .setProps({
+        minValue: 0,
+        maxValue: 100,
+        minStep: this.usesFahrenheit ? 0.1 : 1,
+      })
+      .updateValue(this.historyFileJSON.heatingThresholdTemperature)
+      .setProps({
+        minValue: this.usesFahrenheit ? 62.6 : 17,
+        maxValue: this.usesFahrenheit ? 82.4 : 28,
+      });
+
     this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
   }
 
   async handleCoolingThresholdTemperatureGet() {
-    return this.historyFileJSON.coolingThresholdTemperature; //convert
+    if (
+      this.historyFileJSON.coolingThresholdTemperature > 55 &&
+      !this.usesFahrenheit
+    )
+      this.historyFileJSON.coolingThresholdTemperature = this.temperatureFtoC(
+        this.historyFileJSON.coolingThresholdTemperature
+      );
+    this.platform.log.debug(
+      'handleCoolingThresholdTemperatureGet ',
+      this.historyFileJSON.coolingThresholdTemperature
+    );
+    return this.historyFileJSON.coolingThresholdTemperature;
   }
 
   handleHeatingThresholdTemperatureGet() {
-    return this.historyFileJSON.heatingThresholdTemperature; //convert
+    //safety
+    if (
+      this.historyFileJSON.heatingThresholdTemperature > 55 &&
+      !this.usesFahrenheit
+    )
+      this.historyFileJSON.heatingThresholdTemperature = this.temperatureFtoC(
+        this.historyFileJSON.heatingThresholdTemperature
+      );
+    this.platform.log.debug(
+      'handleHeatingThresholdTemperatureGet ',
+      this.historyFileJSON.heatingThresholdTemperature
+    );
+    return this.historyFileJSON.heatingThresholdTemperature;
   }
 
   async handleCoolingThresholdTemperatureSet(value) {
-    this.historyFileJSON.coolingThresholdTemperature = value; //convert
-    const jsonBody = JSON.stringify({
-      req: 'setACTemp',
-      token: this.token,
-      temp: value,
-    });
+    this.platform.log.debug('handleCoolingThresholdTemperatureSet ', value);
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      this.historyFileJSON.coolingThresholdTemperature = value;
+      let tempValue = 0.0;
+      if (this.historyFileJSON.units == 0) tempValue = value;
+      else tempValue = this.temperatureFtoC(value);
 
-    await this.sendJSON(jsonBody);
+      const jsonBody = JSON.stringify({
+        req: 'setACTemp',
+        token: this.token,
+        temp: tempValue,
+      });
 
-    this.service.updateCharacteristic(
-      this.platform.Characteristic.CoolingThresholdTemperature,
-      this.historyFileJSON.coolingThresholdTemperature
-    );
-    this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+      await this.sendJSON(jsonBody);
+
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CoolingThresholdTemperature,
+        this.historyFileJSON.coolingThresholdTemperature
+      );
+      this.writeConfigHistory(JSON.stringify(this.historyFileJSON));
+    }
   }
+
   //TODO
   handleHeatingThresholdTemperatureSet(value) {
-    this.platform.log.debug('handleHeatingThresholdTemperatureSet ', value);
+    if (!this.historyFileJSON.lockPhysicalControls_state) {
+      this.historyFileJSON.coolingThresholdTemperature = value;
+      let tempValue = 0.0;
+      if (this.historyFileJSON.units == 0) tempValue = value; //convert
+      else tempValue = this.temperatureFtoC(value); //convert
+      this.platform.log.debug(
+        'handleHeatingThresholdTemperatureSet ',
+        this.historyFileJSON.heatingThresholdTemperature
+      );
+    }
   }
+
   //TODO
   handleFilterChangeIndicationGet() {
     return this.platform.Characteristic.FilterChangeIndication.FILTER_OK;
@@ -542,10 +726,10 @@ export class PyluxCarrierAC {
     });
 
     const response = JSON.parse(await this.sendJSON(jsonBody));
-
-    this.historyFileJSON.currentHeaterCooler_relativeHumidity =
-      response.humidity;
-
+    if (response != 'ERROR') {
+      this.historyFileJSON.currentHeaterCooler_relativeHumidity =
+        response.humidity;
+    }
     this.service.updateCharacteristic(
       this.platform.Characteristic.CurrentRelativeHumidity,
       this.historyFileJSON.currentHeaterCooler_relativeHumidity
