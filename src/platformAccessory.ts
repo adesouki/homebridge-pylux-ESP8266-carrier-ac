@@ -6,7 +6,6 @@ import fetch from 'node-fetch';
 import pollingtoevent = require('polling-to-event');
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
 
 export class PyluxCarrierAC {
   private service: Service;
@@ -31,9 +30,13 @@ export class PyluxCarrierAC {
     this.port = airConditioner.port as number;
     this.switchSerialNumber = airConditioner.serial as string;
     this.token = airConditioner.rpi_token as string;
-    let dir = this.getUserHome() + '/.actemp';
+    const dir = this.getUserHome() + '/.actemp';
     if (!existsSync(dir)) {
+		try{
       mkdirSync(dir, 0o744);
+	  } catch (error){
+		  this.platform.log.info('ERROR:', error);
+	  }
     }
     this.dataFilePath = dir + '/data' + this.token + '.json';
     this.url = 'http://' + this.ip + ':' + this.port + '/ac';
@@ -52,6 +55,9 @@ export class PyluxCarrierAC {
       .setCharacteristic(
         this.platform.Characteristic.SerialNumber,
         this.switchSerialNumber
+      ).setCharacteristic(
+        this.platform.Characteristic.Name,
+        "Living AC"
       );
 
     this.service =
@@ -88,7 +94,7 @@ export class PyluxCarrierAC {
       .setProps({
         minValue: this.usesFahrenheit ? 62.6 : 17,
         maxValue: this.usesFahrenheit ? 77 : 26,
-        minStep: this.usesFahrenheit ? 0.1 : 1,
+        minStep: this.usesFahrenheit ? 0.1 : 0.5,
       })
       .onGet(this.handleCoolingThresholdTemperatureGet.bind(this))
       .onSet(this.handleCoolingThresholdTemperatureSet.bind(this));
@@ -101,7 +107,7 @@ export class PyluxCarrierAC {
         minValue: this.usesFahrenheit ? 62.6 : 17,
         // minValue: this.usesFahrenheit ? 68 : 20,
         maxValue: this.usesFahrenheit ? 82.4 : 28,
-        minStep: this.usesFahrenheit ? 0.1 : 1,
+        minStep: this.usesFahrenheit ? 0.1 : 0.5,
       })
       .onGet(this.handleHeatingThresholdTemperatureGet.bind(this))
       .onSet(this.handleHeatingThresholdTemperatureSet.bind(this));
@@ -246,7 +252,7 @@ export class PyluxCarrierAC {
 
   //we need to Q send so we dont overflow.
   sendJSON(jsonBody: string): Promise<string> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
         fetch(this.url, {
           method: 'POST',
@@ -260,13 +266,13 @@ export class PyluxCarrierAC {
           .then((res) => {
             resolve(JSON.stringify(res));
           })
-          .catch((error) => {
-            return 'ERROR';
+          .catch((error) => {           
             this.platform.log.info('ERROR:', error);
+			return 'ERROR';
           });
-      } catch (error) {
-        return 'ERROR';
+      } catch (error) {        
         this.platform.log.info('ERROR:', error);
+		return 'ERROR';
       }
     });
   }
@@ -585,7 +591,7 @@ export class PyluxCarrierAC {
       .setProps({
         minValue: 0,
         maxValue: 100,
-        minStep: this.usesFahrenheit ? 0.1 : 1,
+        minStep: this.usesFahrenheit ? 0.1 : 0.5,
       })
       .updateValue(this.historyFileJSON.coolingThresholdTemperature)
       .setProps({
@@ -620,7 +626,7 @@ export class PyluxCarrierAC {
       .setProps({
         minValue: 0,
         maxValue: 100,
-        minStep: this.usesFahrenheit ? 0.1 : 1,
+        minStep: this.usesFahrenheit ? 0.1 : 0.5,
       })
       .updateValue(this.historyFileJSON.heatingThresholdTemperature)
       .setProps({
@@ -695,7 +701,7 @@ export class PyluxCarrierAC {
       else tempValue = this.temperatureFtoC(value); //convert
       this.platform.log.debug(
         'handleHeatingThresholdTemperatureSet ',
-        this.historyFileJSON.heatingThresholdTemperature
+        tempValue
       );
     }
   }

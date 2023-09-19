@@ -16,9 +16,14 @@ class PyluxCarrierAC {
         this.port = airConditioner.port;
         this.switchSerialNumber = airConditioner.serial;
         this.token = airConditioner.rpi_token;
-        let dir = this.getUserHome() + '/.actemp';
+        const dir = this.getUserHome() + '/.actemp';
         if (!(0, fs_1.existsSync)(dir)) {
-            (0, fs_1.mkdirSync)(dir, 0o744);
+            try {
+                (0, fs_1.mkdirSync)(dir, 0o744);
+            }
+            catch (error) {
+                this.platform.log.info('ERROR:', error);
+            }
         }
         this.dataFilePath = dir + '/data' + this.token + '.json';
         this.url = 'http://' + this.ip + ':' + this.port + '/ac';
@@ -28,7 +33,7 @@ class PyluxCarrierAC {
             .getService(this.platform.Service.AccessoryInformation)
             .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Pylux Solutions, LLC.')
             .setCharacteristic(this.platform.Characteristic.Model, 'Pylux Smart Carrier AC Remote')
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.switchSerialNumber);
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.switchSerialNumber).setCharacteristic(this.platform.Characteristic.Name, "Living AC");
         this.service =
             this.accessory.getService(this.platform.Service.HeaterCooler) ||
                 this.accessory.addService(this.platform.Service.HeaterCooler);
@@ -56,7 +61,7 @@ class PyluxCarrierAC {
             .setProps({
             minValue: this.usesFahrenheit ? 62.6 : 17,
             maxValue: this.usesFahrenheit ? 77 : 26,
-            minStep: this.usesFahrenheit ? 0.1 : 1,
+            minStep: this.usesFahrenheit ? 0.1 : 0.5,
         })
             .onGet(this.handleCoolingThresholdTemperatureGet.bind(this))
             .onSet(this.handleCoolingThresholdTemperatureSet.bind(this));
@@ -66,7 +71,7 @@ class PyluxCarrierAC {
             minValue: this.usesFahrenheit ? 62.6 : 17,
             // minValue: this.usesFahrenheit ? 68 : 20,
             maxValue: this.usesFahrenheit ? 82.4 : 28,
-            minStep: this.usesFahrenheit ? 0.1 : 1,
+            minStep: this.usesFahrenheit ? 0.1 : 0.5,
         })
             .onGet(this.handleHeatingThresholdTemperatureGet.bind(this))
             .onSet(this.handleHeatingThresholdTemperatureSet.bind(this));
@@ -182,7 +187,7 @@ class PyluxCarrierAC {
     }
     //we need to Q send so we dont overflow.
     sendJSON(jsonBody) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             try {
                 (0, node_fetch_1.default)(this.url, {
                     method: 'POST',
@@ -197,13 +202,13 @@ class PyluxCarrierAC {
                     resolve(JSON.stringify(res));
                 })
                     .catch((error) => {
-                    return 'ERROR';
                     this.platform.log.info('ERROR:', error);
+                    return 'ERROR';
                 });
             }
             catch (error) {
-                return 'ERROR';
                 this.platform.log.info('ERROR:', error);
+                return 'ERROR';
             }
         });
     }
@@ -422,7 +427,7 @@ class PyluxCarrierAC {
             .setProps({
             minValue: 0,
             maxValue: 100,
-            minStep: this.usesFahrenheit ? 0.1 : 1,
+            minStep: this.usesFahrenheit ? 0.1 : 0.5,
         })
             .updateValue(this.historyFileJSON.coolingThresholdTemperature)
             .setProps({
@@ -445,7 +450,7 @@ class PyluxCarrierAC {
             .setProps({
             minValue: 0,
             maxValue: 100,
-            minStep: this.usesFahrenheit ? 0.1 : 1,
+            minStep: this.usesFahrenheit ? 0.1 : 0.5,
         })
             .updateValue(this.historyFileJSON.heatingThresholdTemperature)
             .setProps({
@@ -497,7 +502,7 @@ class PyluxCarrierAC {
                 tempValue = value; //convert
             else
                 tempValue = this.temperatureFtoC(value); //convert
-            this.platform.log.debug('handleHeatingThresholdTemperatureSet ', this.historyFileJSON.heatingThresholdTemperature);
+            this.platform.log.debug('handleHeatingThresholdTemperatureSet ', tempValue);
         }
     }
     //TODO
