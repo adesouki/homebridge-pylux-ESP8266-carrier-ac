@@ -11,6 +11,7 @@ export class PyluxCarrierAC {
   private service: Service;
   private token: string;
   private ip: string;
+  private name: string;
   private port: number;
   private switchSerialNumber: string;
   private url: string;
@@ -30,13 +31,14 @@ export class PyluxCarrierAC {
     this.port = airConditioner.port as number;
     this.switchSerialNumber = airConditioner.serial as string;
     this.token = airConditioner.rpi_token as string;
+	this.name = airConditioner.name as string;
     const dir = this.getUserHome() + '/.actemp';
     if (!existsSync(dir)) {
-		try{
-      mkdirSync(dir, 0o744);
-	  } catch (error){
-		  this.platform.log.info('ERROR:', error);
-	  }
+      try {
+        mkdirSync(dir, 0o744);
+      } catch (error) {
+        this.platform.log.info('ERROR:', error);
+      }
     }
     this.dataFilePath = dir + '/data' + this.token + '.json';
     this.url = 'http://' + this.ip + ':' + this.port + '/ac';
@@ -55,10 +57,8 @@ export class PyluxCarrierAC {
       .setCharacteristic(
         this.platform.Characteristic.SerialNumber,
         this.switchSerialNumber
-      ).setCharacteristic(
-        this.platform.Characteristic.Name,
-        "Living AC"
-      );
+      )
+      .setCharacteristic(this.platform.Characteristic.Name, thix.name);
 
     this.service =
       this.accessory.getService(this.platform.Service.HeaterCooler) ||
@@ -266,13 +266,13 @@ export class PyluxCarrierAC {
           .then((res) => {
             resolve(JSON.stringify(res));
           })
-          .catch((error) => {           
+          .catch((error) => {
             this.platform.log.info('ERROR:', error);
-			return 'ERROR';
+            return 'ERROR';
           });
-      } catch (error) {        
+      } catch (error) {
         this.platform.log.info('ERROR:', error);
-		return 'ERROR';
+        return 'ERROR';
       }
     });
   }

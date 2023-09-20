@@ -16,6 +16,7 @@ class PyluxCarrierAC {
         this.port = airConditioner.port;
         this.switchSerialNumber = airConditioner.serial;
         this.token = airConditioner.rpi_token;
+        this.name = airConditioner.name;
         const dir = this.getUserHome() + '/.actemp';
         if (!(0, fs_1.existsSync)(dir)) {
             try {
@@ -33,7 +34,8 @@ class PyluxCarrierAC {
             .getService(this.platform.Service.AccessoryInformation)
             .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Pylux Solutions, LLC.')
             .setCharacteristic(this.platform.Characteristic.Model, 'Pylux Smart Carrier AC Remote')
-            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.switchSerialNumber).setCharacteristic(this.platform.Characteristic.Name, "Living AC");
+            .setCharacteristic(this.platform.Characteristic.SerialNumber, this.switchSerialNumber)
+            .setCharacteristic(this.platform.Characteristic.Name, thix.name);
         this.service =
             this.accessory.getService(this.platform.Service.HeaterCooler) ||
                 this.accessory.addService(this.platform.Service.HeaterCooler);

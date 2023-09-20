@@ -6,6 +6,7 @@ export declare class PyluxCarrierAC {
     private service;
     private token;
     private ip;
+    private name;
     private port;
     private switchSerialNumber;
     private url;
