@@ -58,7 +58,7 @@ export class PyluxCarrierAC {
         this.platform.Characteristic.SerialNumber,
         this.switchSerialNumber
       )
-      .setCharacteristic(this.platform.Characteristic.Name, thix.name);
+      .setCharacteristic(this.platform.Characteristic.Name, this.name);
 
     this.service =
       this.accessory.getService(this.platform.Service.HeaterCooler) ||
